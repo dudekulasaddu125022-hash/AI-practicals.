@@ -1,0 +1,92 @@
+import heapq
+ 
+GOAL = (1, 2, 3, 4, 5, 6, 7, 8, 0)   # 0 is the blank
+ 
+# A solvable start: we built it by sliding from the goal, so a path exists.
+START = (1, 2, 3, 7, 6, 8, 5, 4, 0)
+ 
+ 
+def misplaced(state):
+    # Heuristic 1: how many tiles are not in the goal cell (ignore blank).
+    return sum(1 for i, v in enumerate(state) if v != 0 and v != GOAL[i])
+ 
+ 
+def manhattan(state):
+    # Heuristic 2: for each tile add |row difference| + |column difference|.
+    total = 0
+    for i, v in enumerate(state):
+        if v == 0:
+            continue
+        goal_r, goal_c = divmod(GOAL.index(v), 3)
+        r, c = divmod(i, 3)
+        total += abs(goal_r - r) + abs(goal_c - c)
+    return total
+ 
+ 
+def neighbours(state):
+    # Slide the blank up / down / left / right if that cell exists.
+    s = list(state)
+    z = s.index(0)
+    r, c = divmod(z, 3)
+    out = []
+    for dr, dc in ((0, 1), (1, 0), (0, -1), (-1, 0)):
+        nr, nc = r + dr, c + dc
+        if 0 <= nr < 3 and 0 <= nc < 3:
+            nz = nr * 3 + nc
+            t = s[:]
+            t[z], t[nz] = t[nz], t[z]
+            out.append(tuple(t))
+    return out
+ 
+ 
+def astar(start, heuristic):
+    # Expand the board with the smallest f = g + h.
+    heap = [(heuristic(start), 0, start)]   # (f, g, board)
+    best_g = {start: 0}
+    parent = {}
+    expanded = 0
+    seen = set()
+    while heap:
+        _f, g, here = heapq.heappop(heap)   # THE A* LINE
+        if here in seen:
+            continue
+        seen.add(here)
+        expanded += 1
+        if here == GOAL:
+            path = [here]
+            while path[-1] in parent:
+                path.append(parent[path[-1]])
+            path.reverse()
+            return path, g, expanded
+        for nxt in neighbours(here):
+            new_g = g + 1
+            if new_g < best_g.get(nxt, 10 ** 9):
+                best_g[nxt] = new_g
+                parent[nxt] = here
+                heapq.heappush(heap, (new_g + heuristic(nxt), new_g, nxt))
+    return None, None, expanded
+ 
+ 
+def print_board(state):
+    for r in range(3):
+        row = state[r * 3:(r + 1) * 3]
+        print(" ", " ".join("_" if x == 0 else str(x) for x in row))
+ 
+ 
+if __name__ == "__main__":
+    print("PRACTICAL 3  |  A* heuristics on the 8-puzzle")
+    print("Start:")
+    print_board(START)
+    print("Goal:")
+    print_board(GOAL)
+    print("h misplaced =", misplaced(START))
+    print("h Manhattan =", manhattan(START))
+    print()
+    print(f"{'Heuristic':<14} {'Moves':<8} Nodes expanded")
+    for name, fn in (("misplaced", misplaced), ("manhattan", manhattan)):
+        path, moves, expanded = astar(START, fn)
+        print(f"{name:<14} {moves:<8} {expanded}")
+    print()
+    print("Both paths have the same number of moves (admissible heuristics).")
+    print("Manhattan is tighter, so A* usually expands fewer boards.")
+
